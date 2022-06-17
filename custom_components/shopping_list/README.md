@@ -13,4 +13,3 @@ shopping_list:
   grosh_password: 'password'
 ```
 
-Full list of supported language isn't known, language should follow the `locale` format, such as `de-DE`, `fr-FR`, `ch-FR`, etc.
