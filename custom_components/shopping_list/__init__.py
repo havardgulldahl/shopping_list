@@ -27,11 +27,11 @@ _LOGGER = logging.getLogger(__name__)
 CONFIG_SCHEMA = vol.Schema({DOMAIN: {}}, extra=vol.ALLOW_EXTRA)
 
 EVENT = "shopping_list_updated"
-ITEM_UPDATE_SCHEMA = vol.Schema({"complete": bool, ATTR_NAME: str})
+ITEM_UPDATE_SCHEMA = vol.Schema({"bought": bool, ATTR_NAME: str})
 PERSISTENCE = ".shopping_list.json"
 
 SERVICE_ADD_ITEM = "add_item"
-SERVICE_COMPLETE_ITEM = "complete_item"
+SERVICE_bought_ITEM = "bought_item"
 SERVICE_GROSH_SYNC = "grosh_sync"
 SERVICE_GROSH_SELECT_LIST = "grosh_select_list"
 SERVICE_REMOVE_COMPLETED_ITEMS = "remove_completed_items"
@@ -57,7 +57,7 @@ SCHEMA_WEBSOCKET_UPDATE_ITEM = websocket_api.BASE_COMMAND_MESSAGE_SCHEMA.extend(
         vol.Required("type"): WS_TYPE_SHOPPING_LIST_UPDATE_ITEM,
         vol.Required("item_id"): str,
         vol.Optional("name"): str,
-        vol.Optional("complete"): bool,
+        vol.Optional("bought"): bool,
     }
 )
 
@@ -109,7 +109,7 @@ async def async_setup_entry(hass, config_entry):
         if name is not None:
             await data.async_add(name)
 
-    async def complete_item_service(call):
+    async def bought_item_service(call):
         """Mark the item provided via `name` as completed."""
         data = hass.data[DOMAIN]
         name = call.data.get(ATTR_NAME)
@@ -120,7 +120,7 @@ async def async_setup_entry(hass, config_entry):
         except IndexError:
             _LOGGER.error("Removing of item failed: %s cannot be found", name)
         else:
-            await data.async_update(item["id"], {"name": name, "complete": True})
+            await data.async_update(item["id"], {"name": name, "bought": True})
 
     async def grosh_sync_service(call):
         """Sync with Grosh List"""
@@ -160,7 +160,7 @@ async def async_setup_entry(hass, config_entry):
         DOMAIN, SERVICE_ADD_ITEM, add_item_service, schema=SERVICE_ITEM_SCHEMA
     )
     hass.services.async_register(
-        DOMAIN, SERVICE_COMPLETE_ITEM, complete_item_service, schema=SERVICE_ITEM_SCHEMA
+        DOMAIN, SERVICE_bought_ITEM, bought_item_service, schema=SERVICE_ITEM_SCHEMA
     )
     hass.services.async_register(
         DOMAIN, SERVICE_GROSH_SYNC, grosh_sync_service, schema={}
@@ -208,13 +208,14 @@ async def async_setup_entry(hass, config_entry):
 
 
 class ShoppingItem:
-    """Class to hold a Shopping List item."""
+    """Class to hold a Grosh Shopping List item."""
 
     def __init__(self, item):
         self.name = item["name"]
         self.id = item["id"]
-        self.specification = item["specification"]
-        self.complete = item["complete"]
+        self.amount = item["amount"]
+        self.groceryId = item["groceryId"]
+        self.bought = item["bought"] # HomeAssistant calls it `complete`    
 
     def __str__(self):
         return str(vars(self))
@@ -223,17 +224,17 @@ class ShoppingItem:
         return str(self)
 
     def to_ha(self):
-        specification = ""
-        if len(self.specification) > 0:
-            specification = f" [{self.specification}]"
+        groceryId = ""
+        if len(self.groceryId) > 0:
+            groceryId = f" [{self.groceryId}]"
         return {
-            "name": self.name + specification,
+            "name": self.name + groceryId,
             "id": self.id,
-            "complete": self.complete,
+            "complete": self.bought,
         }
 
     def to_grosh(self):
-        return {"name": self.name, "specification": self.specification}
+        return {"name": self.name, "groceryId": self.groceryId}
 
 
 class GroshData:
@@ -247,18 +248,18 @@ class GroshData:
         self.recent_list = []
 
     @staticmethod
-    def grosh_to_shopping(bitm, item_map, complete):
+    def grosh_to_shopping(bitm, item_map, bought):
         name = bitm["name"]
         for key, itm in item_map.items():
-            if bitm["name"] == itm.name and bitm["specification"] == itm.specification:
+            if bitm["name"] == itm.name and bitm["groceryId"] == itm.groceryId:
                 name = key
                 break
         return ShoppingItem(
             {
                 "name": bitm["name"],
                 "id": name,
-                "specification": bitm["specification"],
-                "complete": complete,
+                "groceryId": bitm["groceryId"],
+                "bought": bought,
             }
         )
 
@@ -281,7 +282,7 @@ class GroshData:
         return name
 
     async def purchase_item(self, item: ShoppingItem):
-        await self.api.purchase_item(self.convert_name(item.name), item.specification)
+        await self.api.purchase_item(self.convert_name(item.name), item.groceryId)
 
     async def recent_item(self, item: ShoppingItem):
         await self.api.recent_item(self.convert_name(item.name))
@@ -304,17 +305,17 @@ class ShoppingData:
     def ha_to_shopping_item(item):
         name = item["name"]
         id = item["id"]
-        complete = item["complete"]
-        specification = ""
+        bought = item["bought"]
+        groceryId = ""
         if " [" in name:
-            specification = name[name.index(" [") + 2 : len(name) - 1]
+            groceryId = name[name.index(" [") + 2 : len(name) - 1]
             name = name[0 : name.index(" [")]
         return ShoppingItem(
             {
                 "name": name,
                 "id": id,
-                "specification": specification,
-                "complete": complete,
+                "groceryId": groceryId,
+                "bought": bought,
             }
         )
 
@@ -337,16 +338,16 @@ class ShoppingData:
 
     async def async_add(self, name):
         """Add a shopping list item."""
-        specification = ""
+        groceryId = ""
         if " [" in name:
-            specification = name[name.index(" [") + 2 : len(name) - 1]
+            groceryId = name[name.index(" [") + 2 : len(name) - 1]
             name = name[0 : name.index(" [")]
         item = ShoppingItem(
             {
                 "name": name,
                 "id": f"{name}",
-                "specification": specification,
-                "complete": False,
+                "groceryId": groceryId,
+                "bought": False,
             }
         )
         self.items.append(item.to_ha())
@@ -365,22 +366,22 @@ class ShoppingData:
         key = list(info.keys())[0]
         value = info[key]
 
-        if key == "complete":
-            item.complete = value
+        if key == "bought":
+            item.bought = value
         elif key == "name":
             name = value
-            specification = ""
+            groceryId = ""
             if " [" in name:
-                specification = name[name.index(" [") + 2 : len(name) - 1]
+                groceryId = name[name.index(" [") + 2 : len(name) - 1]
                 name = name[0 : name.index(" [")]
             await self.grosh.remove_item(item)
             item.name = name
-            item.specification = specification
+            item.groceryId = groceryId
             item.id = name
             self.map_items.pop(item_id)
             self.map_items[item.name] = item
 
-        if item.complete:
+        if item.bought:
             await self.grosh.recent_item(item)
         else:
             await self.grosh.purchase_item(item)
@@ -393,7 +394,7 @@ class ShoppingData:
         """Clear completed items."""
         to_remove = []
         for key, itm in self.map_items.items():
-            if itm.complete:
+            if itm.bought:
                 await self.grosh.remove_item(itm)
                 self.remove(self.grosh.recent_list, itm)
                 self.remove(self.items, itm.to_ha())
