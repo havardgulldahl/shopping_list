@@ -17,7 +17,7 @@
         "title": "Shopping List",
         "description": "Choose the list to synchronize.",
         "data": {
-          "list_name": "Bring list to synchronize"
+          "list_name": "Grosh list to synchronize"
         }
       }
     }
@@ -26,11 +26,11 @@
   "options": {
     "step": {
       "locale_and_list": {
-        "title": "Bring Options",
+        "title": "Grosh Options",
         "description": "Choose the locale and the list to synchronize",
         "data": {
           "locale": "A Locale (eg. en-EN)",
-          "list_name": "Bring list to synchronize"
+          "list_name": "Grosh list to synchronize"
         }
       }
     }

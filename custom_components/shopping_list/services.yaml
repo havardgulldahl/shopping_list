@@ -10,13 +10,13 @@ complete_item:
     name:
       description: The name of the item to mark as completed.
       example: Beer
-bring_sync:
-  description: Syncs with Bring Shopping List.
-bring_select_list:
-  description: Select which list Bring should synchronize with.
+Grosh_sync:
+  description: Syncs with Grosh Shopping List.
+Grosh_select_list:
+  description: Select which list Grosh should synchronize with.
   fields:
     name:
-      description: The name of the Bring list.
+      description: The name of the Grosh list.
       example: Shopping
 remove_completed_items:
   description: Removes completed items.

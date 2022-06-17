@@ -17,7 +17,7 @@
         "title": "Shopping List",
         "description": "Choisissez la liste \u00e0 synchroniser.",
         "data": {
-          "list_name": "List Bring \u00e0 synchroniser"
+          "list_name": "List Grosh \u00e0 synchroniser"
         }
       }
     }
@@ -26,11 +26,11 @@
   "options": {
     "step": {
       "locale_and_list": {
-        "title": "Options pour Bring",
+        "title": "Options pour Grosh",
         "description": "Choisissez la locale et la liste \u00e0 synchroniser.",
         "data": {
           "locale": "Locale (ex: fr-FR)",
-          "list_name": "List Bring \u00e0 synchroniser"
+          "list_name": "List Grosh \u00e0 synchroniser"
         }
       }
     }

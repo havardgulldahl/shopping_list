@@ -6,7 +6,7 @@ from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import callback
 import voluptuous as vol
 
-from .bring import BringApi
+from .grosh import GroshApi
 from .const import DOMAIN  # pylint: disable=unused-import
 
 _LOGGER = logging.getLogger(__name__)
@@ -46,7 +46,7 @@ class ShoppingListFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         username = user_input.get(CONF_USERNAME)
         password = user_input.get(CONF_PASSWORD)
 
-        async with BringApi(username, password) as client:
+        async with GroshApi(username, password) as client:
             await client.login()
             return True
 
@@ -85,7 +85,7 @@ class ShoppingListFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             )
 
         lists = []
-        async with BringApi(self._username, self._password) as client:
+        async with GroshApi(self._username, self._password) as client:
             await client.login()
             await client.get_lists()
             lists = [_list.get("name") for _list in client.lists]
@@ -118,7 +118,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             self.options[CONF_LIST_NAME] = self.config_entry.data[CONF_LIST_NAME]
 
     async def async_step_init(self, user_input=None):
-        """Manage the Bring options."""
+        """Manage the Grosh options."""
         return await self.async_step_locale_and_list()
 
     async def async_step_locale_and_list(self, user_input=None):
@@ -131,7 +131,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         username = self.config_entry.data.get("username")
         password = self.config_entry.data.get("password")
         lists = []
-        async with BringApi(username, password) as client:
+        async with GroshApi(username, password) as client:
             await client.login()
             await client.get_lists()
             lists = [_list.get("name") for _list in client.lists]

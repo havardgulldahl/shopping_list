@@ -15,7 +15,7 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.util.json import load_json, save_json
 import voluptuous as vol
 
-from .bring import BringApi
+from .grosh import GroshApi
 from .const import DOMAIN
 
 ATTR_NAME = "name"
@@ -32,12 +32,12 @@ PERSISTENCE = ".shopping_list.json"
 
 SERVICE_ADD_ITEM = "add_item"
 SERVICE_COMPLETE_ITEM = "complete_item"
-SERVICE_BRING_SYNC = "bring_sync"
-SERVICE_BRING_SELECT_LIST = "bring_select_list"
+SERVICE_GROSH_SYNC = "grosh_sync"
+SERVICE_GROSH_SELECT_LIST = "grosh_select_list"
 SERVICE_REMOVE_COMPLETED_ITEMS = "remove_completed_items"
 
 SERVICE_ITEM_SCHEMA = vol.Schema({vol.Required(ATTR_NAME): vol.Any(None, cv.string)})
-SERVICE_BRING_SELECT_LIST_SCHEMA = vol.Schema({vol.Required(ATTR_NAME): str})
+SERVICE_GROSH_SELECT_LIST_SCHEMA = vol.Schema({vol.Required(ATTR_NAME): str})
 
 WS_TYPE_SHOPPING_LIST_ITEMS = "shopping_list/items"
 WS_TYPE_SHOPPING_LIST_ADD_ITEM = "shopping_list/items/add"
@@ -86,16 +86,16 @@ async def async_options_updated(hass, entry):
     locale = entry.options[CONF_LOCALE]
     list_name = entry.options[CONF_LIST_NAME]
     data = hass.data[DOMAIN]
-    if data.bring.language != locale:
-        bring_data = BringData(
+    if data.grosh.language != locale:
+        grosh_data = GroshData(
             entry.data.get("username"),
             entry.data.get("password"),
             locale,
-            data.bring.api.session,
+            data.grosh.api.session,
         )
-        await bring_data.api.login()
-        await bring_data.load_catalog()
-        data.bring = bring_data
+        await grosh_data.api.login()
+        await grosh_data.load_catalog()
+        data.grosh = grosh_data
     await data.switch_list(list_name)
 
 
@@ -122,12 +122,12 @@ async def async_setup_entry(hass, config_entry):
         else:
             await data.async_update(item["id"], {"name": name, "complete": True})
 
-    async def bring_sync_service(call):
-        """Sync with Bring List"""
-        await hass.data[DOMAIN].sync_bring()
+    async def grosh_sync_service(call):
+        """Sync with Grosh List"""
+        await hass.data[DOMAIN].sync_grosh()
 
-    async def bring_select_list_service(call):
-        """Select which Bring List HA should synchronize with"""
+    async def grosh_select_list_service(call):
+        """Select which Grosh List HA should synchronize with"""
         data = hass.data[DOMAIN]
         name = call.data.get(ATTR_NAME)
 
@@ -145,12 +145,12 @@ async def async_setup_entry(hass, config_entry):
     list_name = config_entry.options.get(CONF_LIST_NAME)
 
     session = aiohttp_client.async_create_clientsession(hass)
-    bring_data = BringData(username, password, language, session)
-    await bring_data.api.login()
-    await bring_data.load_catalog()
+    grosh_data = GroshData(username, password, language, session)
+    await grosh_data.api.login()
+    await grosh_data.load_catalog()
 
     data = hass.data[DOMAIN] = ShoppingData(
-        hass, username, password, language, bring_data
+        hass, username, password, language, grosh_data
     )
     await data.async_load()
     if list_name:
@@ -163,13 +163,13 @@ async def async_setup_entry(hass, config_entry):
         DOMAIN, SERVICE_COMPLETE_ITEM, complete_item_service, schema=SERVICE_ITEM_SCHEMA
     )
     hass.services.async_register(
-        DOMAIN, SERVICE_BRING_SYNC, bring_sync_service, schema={}
+        DOMAIN, SERVICE_GROSH_SYNC, grosh_sync_service, schema={}
     )
     hass.services.async_register(
         DOMAIN,
-        SERVICE_BRING_SELECT_LIST,
-        bring_select_list_service,
-        schema=SERVICE_BRING_SELECT_LIST_SCHEMA,
+        SERVICE_GROSH_SELECT_LIST,
+        grosh_select_list_service,
+        schema=SERVICE_GROSH_SELECT_LIST_SCHEMA,
     )
     hass.services.async_register(
         DOMAIN,
@@ -232,22 +232,22 @@ class ShoppingItem:
             "complete": self.complete,
         }
 
-    def to_bring(self):
+    def to_grosh(self):
         return {"name": self.name, "specification": self.specification}
 
 
-class BringData:
-    """Class to hold a Bring shopping list data."""
+class GroshData:
+    """Class to hold a Grosh shopping list data."""
 
     def __init__(self, username, password, language, session) -> None:
-        self.api = BringApi(username, password, session)
+        self.api = GroshApi(username, password, session)
         self.language = language
         self.catalog = {}
         self.purchase_list = []
         self.recent_list = []
 
     @staticmethod
-    def bring_to_shopping(bitm, item_map, complete):
+    def grosh_to_shopping(bitm, item_map, complete):
         name = bitm["name"]
         for key, itm in item_map.items():
             if bitm["name"] == itm.name and bitm["specification"] == itm.specification:
@@ -269,10 +269,10 @@ class BringData:
     async def update_lists(self, map):
         lists = await self.api.get_items(self.language)
         self.purchase_list = [
-            self.bring_to_shopping(itm, map, False) for itm in lists["purchase"]
+            self.grosh_to_shopping(itm, map, False) for itm in lists["purchase"]
         ]
         self.recent_list = [
-            self.bring_to_shopping(itm, map, True) for itm in lists["recently"]
+            self.grosh_to_shopping(itm, map, True) for itm in lists["recently"]
         ]
 
     def convert_name(self, name):
@@ -293,9 +293,9 @@ class BringData:
 class ShoppingData:
     """Class to hold shopping list data."""
 
-    def __init__(self, hass, username, password, language, bring_data):
+    def __init__(self, hass, username, password, language, grosh_data):
         """Initialize the shopping list."""
-        self.bring = bring_data
+        self.grosh = grosh_data
         self.hass = hass
         self.map_items = {}
         self.items = []
@@ -350,9 +350,9 @@ class ShoppingData:
             }
         )
         self.items.append(item.to_ha())
-        await self.bring.purchase_item(item)
+        await self.grosh.purchase_item(item)
         self.map_items[item.id] = item
-        await self.sync_bring()
+        await self.sync_grosh()
         await self.hass.async_add_executor_job(self.save)
         return item.to_ha()
 
@@ -373,7 +373,7 @@ class ShoppingData:
             if " [" in name:
                 specification = name[name.index(" [") + 2 : len(name) - 1]
                 name = name[0 : name.index(" [")]
-            await self.bring.remove_item(item)
+            await self.grosh.remove_item(item)
             item.name = name
             item.specification = specification
             item.id = name
@@ -381,11 +381,11 @@ class ShoppingData:
             self.map_items[item.name] = item
 
         if item.complete:
-            await self.bring.recent_item(item)
+            await self.grosh.recent_item(item)
         else:
-            await self.bring.purchase_item(item)
+            await self.grosh.purchase_item(item)
         self.update_item(item_id, item)
-        await self.sync_bring()
+        await self.sync_grosh()
         await self.hass.async_add_executor_job(self.save)
         return item.to_ha()
 
@@ -394,24 +394,24 @@ class ShoppingData:
         to_remove = []
         for key, itm in self.map_items.items():
             if itm.complete:
-                await self.bring.remove_item(itm)
-                self.remove(self.bring.recent_list, itm)
+                await self.grosh.remove_item(itm)
+                self.remove(self.grosh.recent_list, itm)
                 self.remove(self.items, itm.to_ha())
                 to_remove.append(key)
         for key in to_remove:
             self.map_items.pop(key)
-        await self.sync_bring()
+        await self.sync_grosh()
         await self.hass.async_add_executor_job(self.save)
 
     async def switch_list(self, list_name):
         self.map_items = {}
-        await self.bring.api.select_list(list_name)
-        await self.sync_bring()
+        await self.grosh.api.select_list(list_name)
+        await self.sync_grosh()
 
-    async def sync_bring(self):
-        await self.bring.update_lists(self.map_items)
+    async def sync_grosh(self):
+        await self.grosh.update_lists(self.map_items)
 
-        for itm in self.bring.purchase_list + self.bring.recent_list:
+        for itm in self.grosh.purchase_list + self.grosh.recent_list:
             self.map_items[itm.id] = itm
 
         self.items = [itm.to_ha() for k, itm in self.map_items.items()]
@@ -426,7 +426,7 @@ class ShoppingData:
         self.items = await self.hass.async_add_executor_job(load)
         for itm in self.items:
             self.map_items[itm["id"]] = self.ha_to_shopping_item(itm)
-        await self.sync_bring()
+        await self.sync_grosh()
 
     def save(self):
         """Save the items."""
