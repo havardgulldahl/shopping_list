@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Type, Union
 from base64 import b64encode
 
 from aiohttp import ClientResponse, ClientSession, InvalidURL, BasicAuth
+import itertools
 
 JSON = Union[Dict[str, Any], List[Dict[str, Any]]]
 
@@ -177,7 +178,9 @@ class GroshApi:
         items = await self.__get(
             GROSH_URL, f"/households/{self.GroshListID}/current", headers=self.headers
         )
-        print(f"### Got items ({self.GroshListID=}: {items}")
+        # items is a list['category':str, 'groceries':list[groshitems]]
+        collapsed_list = itertools.chain.from_iterable([x['groceries'] for x in items])
+        print(f"### Got items {self.GroshListID=}: {list(collapsed_list)}")
 
         """
         if locale:
@@ -187,7 +190,7 @@ class GroshApi:
             for item in items["recently"]:
                 item["name"] = transl.get(item["name"]) or item["name"]
         """
-        return items["groceries"]
+        return collapsed_list
 
     # return the details: Name, Image, UUID
     async def get_items_detail(self) -> dict:
@@ -229,10 +232,12 @@ class GroshApi:
 
     # search for an item in the list
     async def search_item(self, search):
-        all_items = self.load_catalog()
+        all_items = await self.load_catalog()
+        print(f"### got {all_items=}")
         selected = next(
-            (_itm for _itm in all_items if _itm.get("name") == name), None
+            (_itm for _itm in all_items if _itm.get("name").upper() == search.upper()), None
         )
+        print(f"### search returned {selected=}")
         return selected
 
     # // Hidden Icons? Don't know what this is used for
