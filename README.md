@@ -1,6 +1,6 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
 
-# Custom Shopping List with ~Grosh~ Grosh integration.
+# Custom Shopping List with ~Bring~ Grosh integration.
 
 *This is a fork of vlebourl/shopping_list. All credit to them as the original author. Thank them for doing the heavy lifting!*
 
