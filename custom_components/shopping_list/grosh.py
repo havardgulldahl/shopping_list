@@ -45,7 +45,7 @@ class GroshApi:
         self.auth = BasicAuth(username, password)
         self.headers = {}
         self.addheaders = {}
-        self.session = session if session else ClientSession(auth=self.auth)
+        self.session = session if session else ClientSession()
         self.logged = False
         self.selected_list = "Default"
 
@@ -97,6 +97,7 @@ class GroshApi:
         """Make a GET request to the Grosh API"""
         async with self.session.get(
             f"{url}{endpoint}",
+            auth=self.auth,
             headers=headers,
             data=data,
             json=payload,
@@ -116,6 +117,7 @@ class GroshApi:
         """Make a PUT request to the Grosh API"""
         async with self.session.put(
             f"{GROSH_URL}{endpoint}",
+            auth=self.auth,
             headers=headers,
             data=data,
             json=payload,
