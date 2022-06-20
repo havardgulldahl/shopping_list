@@ -125,7 +125,7 @@ class GroshApi:
 
     async def login(self) -> None:
         try:
-            login = await self.__get(GROSH_URL, "")
+            login = await self.get_lists()
             self.logged = True
         except (InvalidURL, ValueError):
             raise AuthentificationFailed("email password combination not existing")
@@ -280,6 +280,7 @@ if __name__ == "__main__":
     import asyncio
 
     loop = asyncio.get_event_loop()
+    loop.run_until_complete(api.login())
     loop.run_until_complete(api.get_lists())
     loop.run_until_complete(api.select_list("Handleliste"))
     loop.run_until_complete(api.get_items())
