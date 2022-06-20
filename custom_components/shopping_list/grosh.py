@@ -5,7 +5,6 @@ from __future__ import annotations
 from json import JSONDecodeError
 from types import TracebackType
 from typing import Any, Dict, List, Optional, Type, Union
-from base64 import b64encode
 
 from aiohttp import ClientResponse, ClientSession, InvalidURL, BasicAuth
 import itertools
@@ -13,7 +12,7 @@ import itertools
 JSON = Union[Dict[str, Any], List[Dict[str, Any]]]
 
 """
-This inofficial API implementation is based on communication with the 
+This unofficial API implementation is based on communication with the 
 awesome Grosh team. 
 
 For information about Grosh please see groshapp.com
@@ -22,7 +21,8 @@ Everybody feel free to use it, but without any liability or warranty.
 
 """
 
-GROSH_URL = "https://groshapp.com/edge"
+# GROSH_URL = "https://groshapp.com/edge" # DEV
+GROSH_URL = "https://gr1.compellingsoftware.com/edge"  # PROD
 
 
 class AuthentificationFailed(Exception):
@@ -42,11 +42,10 @@ class GroshApi:
         self.GroshUUID = ""
         self.GroshListID = ""
         self.lists = []
-        auth = BasicAuth(username, password)
-        self.headers = {"Authorization": auth.encode()}
-        #self.auth = BasicAuth(username, password)
+        self.auth = BasicAuth(username, password)
+        self.headers = {}
         self.addheaders = {}
-        self.session = session if session else ClientSession(headers=self.headers)
+        self.session = session if session else ClientSession(auth=self.auth)
         self.logged = False
         self.selected_list = "Default"
 
@@ -63,7 +62,7 @@ class GroshApi:
 
     @staticmethod
     async def check_response(response: ClientResponse) -> None:
-        """ Check the response returned by the Grosh API"""
+        """Check the response returned by the Grosh API"""
         if response.status in [200, 204]:
             return
         elif response.status == 404:
@@ -75,7 +74,7 @@ class GroshApi:
             result = await response.text()
         if not result:
             result = None
-        print(f"### Got {response.status=} {result=}")
+        # print(f"### Got {response.status=} {result=}")
         if response.status == 401:
             # we wait until here, so we get the full error message from Grosh
             raise AuthentificationFailed(response.url, result or response.reason)
@@ -95,10 +94,9 @@ class GroshApi:
         data: Optional[JSON] = None,
         params: Optional[JSON] = None,
     ) -> Any:
-        """ Make a GET request to the Grosh API """
+        """Make a GET request to the Grosh API"""
         async with self.session.get(
             f"{url}{endpoint}",
-            #auth=self.auth,
             headers=headers,
             data=data,
             json=payload,
@@ -115,10 +113,9 @@ class GroshApi:
         data: Optional[JSON] = None,
         params: Optional[JSON] = None,
     ) -> None:
-        """ Make a PUT request to the Grosh API """
+        """Make a PUT request to the Grosh API"""
         async with self.session.put(
             f"{GROSH_URL}{endpoint}",
-            #auth=self.auth,
             headers=headers,
             data=data,
             json=payload,
@@ -128,25 +125,7 @@ class GroshApi:
 
     async def login(self) -> None:
         try:
-            #params = {"email": self.username, "password": self.password}
             login = await self.__get(GROSH_URL, "")
-            """self.GroshUUID = login["uuid"]
-            self.GroshListID = login["GroshListID"]
-            self.headers = {
-                "X-Grosh-API-KEY": "cof4Nc6D8saplXjE3h3HXqHH8m7VU2i1Gs0g85Sp",
-                "X-Grosh-CLIENT": "android",
-                "X-Grosh-USER-UUID": self.GroshUUID,
-                "X-Grosh-VERSION": "303070050",
-                "X-Grosh-COUNTRY": "de",
-            }
-            self.addheaders = {
-                "X-Grosh-API-KEY": "cof4Nc6D8saplXjE3h3HXqHH8m7VU2i1Gs0g85Sp",
-                "X-Grosh-CLIENT": "android",
-                "X-Grosh-USER-UUID": self.GroshUUID,
-                "X-Grosh-VERSION": "303070050",
-                "X-Grosh-COUNTRY": "de",
-                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-            }"""
             self.logged = True
         except (InvalidURL, ValueError):
             raise AuthentificationFailed("email password combination not existing")
@@ -156,10 +135,8 @@ class GroshApi:
         await self.session.close()
 
     async def get_lists(self) -> None:
-        lists = await self.__get(
-            GROSH_URL, f"/users/me/households", headers=self.headers
-        )
-        print(f"Got lists: {lists}")
+        lists = await self.__get(GROSH_URL, f"/users/me/households")
+        # print(f"Got lists: {lists}")
         self.lists = lists
 
     async def select_list(self, name):
@@ -171,16 +148,14 @@ class GroshApi:
             raise ValueError(f"List {name} does not exist")
         self.GroshListID = selected.get("id")
         self.selected_list = selected.get("name")
-        print(f"### Selected {self.GroshListID=} - {self.selected_list=}")
+        # print(f"### Selected {self.GroshListID=} - {self.selected_list=}")
 
     # return list of items from current list as well as recent items - translated if requested
     async def get_items(self, locale=None) -> dict:
-        items = await self.__get(
-            GROSH_URL, f"/households/{self.GroshListID}/current", headers=self.headers
-        )
+        items = await self.__get(GROSH_URL, f"/households/{self.GroshListID}/current")
         # items is a list['category':str, 'groceries':list[groshitems]]
-        collapsed_list = itertools.chain.from_iterable([x['groceries'] for x in items])
-        print(f"### Got items {self.GroshListID=}: {list(collapsed_list)}")
+        collapsed_list = itertools.chain.from_iterable([x["groceries"] for x in items])
+        # print(f"### Got items {self.GroshListID=}: {list(collapsed_list)}")
 
         """
         if locale:
@@ -199,7 +174,6 @@ class GroshApi:
         items = await self.__get(
             Grosh_URL,
             f"Groshlists/{self.GroshListID}/details",
-            headers=self.headers,
         )
         return items
 
@@ -233,17 +207,18 @@ class GroshApi:
     # search for an item in the list
     async def search_item(self, search):
         all_items = await self.load_catalog()
-        print(f"### got {all_items=}")
+        # print(f"### got {all_items=}")
         selected = next(
-            (_itm for _itm in all_items if _itm.get("name").upper() == search.upper()), None
+            (_itm for _itm in all_items if _itm.get("name").upper() == search.upper()),
+            None,
         )
-        print(f"### search returned {selected=}")
+        # print(f"### search returned {selected=}")
         return selected
 
     # // Hidden Icons? Don't know what this is used for
     async def load_products(self):
         raise NotImplementedError
-        return await self.__get(Grosh_URL, "Groshproducts", headers=self.headers)
+        return await self.__get(Grosh_URL, "Groshproducts")
 
     # // Found Icons? Don't know what this is used for
     async def load_features(self):
@@ -251,7 +226,6 @@ class GroshApi:
         return await self.__get(
             Grosh_URL,
             f"Groshusers/{self.GroshUUID}/features",
-            headers=self.headers,
         )
 
     # load all list infos
@@ -260,15 +234,12 @@ class GroshApi:
         return await self.__get(
             Grosh_URL,
             f"Groshusers/{self.GroshUUID}/lists",
-            headers=self.headers,
         )
 
     # get list of all users in list ID
     async def get_users_from_list(self, listUUID):
         raise NotImplementedError
-        return await self.__get(
-            Grosh_URL, f"Groshlists/{listUUID}/users", headers=self.headers
-        )
+        return await self.__get(Grosh_URL, f"Groshlists/{listUUID}/users")
 
     # get settings from user
     async def get_user_settings(self):
@@ -276,7 +247,6 @@ class GroshApi:
         return await self.__get(
             Grosh_URL,
             f"Groshusersettings/{self.GroshUUID}",
-            headers=self.headers,
         )
 
     # Load translation file e. g. via 'de-DE'
@@ -300,18 +270,17 @@ class GroshApi:
         return await self.__get(
             GROSH_URL,
             f"/groceries",
-            headers=self.headers,
         )
 
 
-if __name__=="__main__":
-    import os 
+if __name__ == "__main__":
+    import os
+
     api = GroshApi(username=os.getenv("GROSHU"), password=os.getenv("GROSHP"))
     import asyncio
 
     loop = asyncio.get_event_loop()
     loop.run_until_complete(api.get_lists())
-    loop.run_until_complete(api.select_list("Einkaufsliste"))
+    loop.run_until_complete(api.select_list("Handleliste"))
     loop.run_until_complete(api.get_items())
-    loop.run_until_complete(api.search_item("Toilettenpapier"))
-
+    loop.run_until_complete(api.search_item("pulverkaffe"))

@@ -11,5 +11,7 @@ To use it, add the following to your configuration.yaml:
 shopping_list:
   grosh_username: 'username'
   grosh_password: 'password'
+  grosh_language: 'en-EN'
 ```
 
+Full list of supported language isn't known, language should follow the `locale` format, such as `de-DE`, `fr-FR`, `ch-FR`, etc.
