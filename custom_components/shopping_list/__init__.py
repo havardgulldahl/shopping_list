@@ -264,8 +264,7 @@ class GroshData:
         )
 
     async def load_catalog(self):
-        catalog = await self.api.load_translations(self.language)
-        self.catalog = {v: k for k, v in catalog.items()}
+        self.catalog = await self.api.load_catalog()
 
     async def update_lists(self, map):
         lists = await self.api.get_items(self.language)
@@ -305,7 +304,7 @@ class ShoppingData:
     def ha_to_shopping_item(item):
         name = item["name"]
         id = item["id"]
-        bought = item["bought"]
+        bought = item["complete"]
         groceryId = ""
         if " [" in name:
             groceryId = name[name.index(" [") + 2 : len(name) - 1]
