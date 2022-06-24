@@ -305,6 +305,7 @@ class ShoppingData:
         name = item["name"]
         id = item["id"]
         bought = item["complete"]
+        amount = item["amount"]
         groceryId = ""
         if " [" in name:
             groceryId = name[name.index(" [") + 2 : len(name) - 1]
@@ -314,6 +315,7 @@ class ShoppingData:
                 "name": name,
                 "id": id,
                 "groceryId": groceryId,
+                "amount": amount,
                 "bought": bought,
             }
         )
