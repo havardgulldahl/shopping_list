@@ -224,9 +224,7 @@ class ShoppingItem:
         return str(self)
 
     def to_ha(self):
-        groceryId = ""
-        if len(self.groceryId) > 0:
-            groceryId = f" [{self.groceryId}]"
+        groceryId = f" [{self.groceryId}]"
         return {
             "name": self.name + groceryId,
             "id": self.id,
