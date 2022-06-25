@@ -213,9 +213,9 @@ class ShoppingItem:
     def __init__(self, item):
         self.name = item["name"]
         self.id = item["id"]
-        self.amount = item["amount"]
+        self.amount = item.get("amount", None)
         self.groceryId = item["groceryId"]
-        self.bought = item["bought"] # HomeAssistant calls it `complete`    
+        self.bought = item.get("bought", None) # HomeAssistant calls it `complete`    
 
     def __str__(self):
         return str(vars(self))
