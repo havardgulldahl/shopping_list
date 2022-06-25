@@ -152,9 +152,9 @@ async def async_setup_entry(hass, config_entry):
     data = hass.data[DOMAIN] = ShoppingData(
         hass, username, password, language, grosh_data
     )
-    await data.async_load()
     if list_name:
         await data.switch_list(list_name)
+    await data.async_load()
 
     hass.services.async_register(
         DOMAIN, SERVICE_ADD_ITEM, add_item_service, schema=SERVICE_ITEM_SCHEMA
@@ -302,10 +302,11 @@ class ShoppingData:
 
     @staticmethod
     def ha_to_shopping_item(item):
+        _LOGGER.debug(f"ha_to_shopping_item ( {item=} )")
         name = item["name"]
         id = item["id"]
         bought = item["complete"]
-        amount = item["amount"]
+        amount = item.get("amount", None)
         groceryId = ""
         if " [" in name:
             groceryId = name[name.index(" [") + 2 : len(name) - 1]
@@ -406,6 +407,7 @@ class ShoppingData:
         await self.hass.async_add_executor_job(self.save)
 
     async def switch_list(self, list_name):
+        _LOGGER.info(f"switch_list {list_name=}")
         self.map_items = {}
         await self.grosh.api.select_list(list_name)
         await self.sync_grosh()
