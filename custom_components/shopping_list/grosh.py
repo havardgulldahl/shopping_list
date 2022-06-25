@@ -152,7 +152,7 @@ class GroshApi:
         self.selected_list = selected.get("name")
         # print(f"### Selected {self.GroshListID=} - {self.selected_list=}")
 
-    # return list of items from current list as well as recent items - translated if requested
+    # return dict of items from current list as well as recently bought items - translated if requested
     async def get_items(self, locale=None) -> dict:
         items = await self.__get(GROSH_URL, f"/households/{self.GroshListID}/current")
         # items is a list['category':str, 'groceries':list[groshitems]]
@@ -167,7 +167,13 @@ class GroshApi:
             for item in items["recently"]:
                 item["name"] = transl.get(item["name"]) or item["name"]
         """
-        return collapsed_list
+        ret = {"bought": [], "purchase": []}
+        for itm in collapsed_list:
+            if itm.get("bought", None) is not None: # will be a timestamp if it exists
+                ret["bought"].append(itm)
+            else:
+                ret["purchase"].append(itm)
+        return ret
 
     # return the details: Name, Image, UUID
     async def get_items_detail(self) -> dict:

@@ -272,7 +272,7 @@ class GroshData:
             self.grosh_to_shopping(itm, map, False) for itm in lists["purchase"]
         ]
         self.recent_list = [
-            self.grosh_to_shopping(itm, map, True) for itm in lists["recently"]
+            self.grosh_to_shopping(itm, map, True) for itm in lists["bought"]
         ]
 
     def convert_name(self, name):
